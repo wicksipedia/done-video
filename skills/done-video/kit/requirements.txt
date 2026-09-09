@@ -1,0 +1,9 @@
+# Python side of the pipeline. Apple Silicon only: mlx-audio runs on MLX,
+# which is Metal-backed and has no CUDA or x86 path.
+#
+# These are floors rather than the exact versions the first video was built
+# with — that venv lived in a temp directory and was collected before it could
+# be frozen. If a future run breaks, pin what worked and record it here.
+
+mlx-audio>=0.4          # voice cloning (clone.py)
+numpy>=1.26             # frame and waveform analysis (calibrate.py, stingers.py)

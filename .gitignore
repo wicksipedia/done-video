@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+
+# Supplied by the presenter, never committed: this is someone's voice.
+skills/done-video/kit/voice/
+
+# Produced by a run.
+audio/
+cards/
+clips/
+timings.json
+*.mp4
+*.log
+skills/done-video/kit/clicks/

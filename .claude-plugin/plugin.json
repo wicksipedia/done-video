@@ -1,0 +1,13 @@
+{
+  "name": "done-video",
+  "version": "0.1.0",
+  "description": "Record a narrated before/after demo video of a bug fix. Drives the app with Playwright, clones the presenter's voice locally, and assembles with ffmpeg.",
+  "author": {
+    "name": "Matt Wicks",
+    "url": "https://github.com/wicksipedia"
+  },
+  "homepage": "https://github.com/wicksipedia/done-video",
+  "repository": "https://github.com/wicksipedia/done-video",
+  "license": "MIT",
+  "keywords": ["video", "playwright", "ffmpeg", "tts", "screencast", "demo"]
+}

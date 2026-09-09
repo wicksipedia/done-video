@@ -1,0 +1,59 @@
+[
+  {
+    "id": "b0a",
+    "segment": "intro",
+    "caption": "PRESENTER NAME",
+    "text": "This is PRESENTER NAME."
+  },
+  {
+    "id": "b0",
+    "segment": "intro",
+    "caption": "Pull request #123",
+    "text": "Pull request one two three. Say here, in one sentence, what went wrong. Let me show you."
+  },
+  {
+    "id": "b1",
+    "segment": "before",
+    "caption": "Setting the scene",
+    "text": "Name what you are doing before you do it, so the action confirms the words."
+  },
+  {
+    "id": "b2",
+    "segment": "before",
+    "caption": "The ordinary step that breaks",
+    "text": "Describe the step as ordinary. The viewer has to believe they would have done the same."
+  },
+  {
+    "id": "b3",
+    "segment": "before",
+    "caption": "The failure",
+    "text": "Say what just broke, and what it costs. This is the pain the video exists to show."
+  },
+  {
+    "id": "b4",
+    "segment": "after",
+    "caption": "The same steps, with the fix",
+    "text": "The same steps, with the fix applied."
+  },
+  {
+    "id": "b5",
+    "segment": "after",
+    "caption": "What happens instead",
+    "text": "Say what happens now in its place, and why that is better.",
+    "pauseAfter": 700
+  },
+  {
+    "id": "b6",
+    "segment": "outro",
+    "caption": "What now exists",
+    "text": "Name the thing rather than the change. A viewer arriving here should be able to say what now exists.",
+    "pauseAfter": 800
+  },
+  {
+    "id": "b7",
+    "segment": "outro",
+    "caption": "Sign-off",
+    "text": "This has been PRESENTER NAME. Thanks for watching, and I will see you on the next one.",
+    "pauseAfter": 500
+  }
+]

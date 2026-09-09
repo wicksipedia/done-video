@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "done-video",
+  "description": "Narrated before/after demo videos of a bug fix, recorded and assembled locally.",
+  "owner": {
+    "name": "Matt Wicks",
+    "url": "https://github.com/wicksipedia"
+  },
+  "plugins": [
+    {
+      "name": "done-video",
+      "description": "Record a narrated before/after demo video of a bug fix: Playwright drives the app, a local voice clone narrates, ffmpeg assembles.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
