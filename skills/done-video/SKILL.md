@@ -25,6 +25,7 @@ cd "$WORK"
 | `beats.json` | Narration lines, captions, per-beat pauses. Rewrite for each video |
 | `record.mjs` | Drives the app, captures video, logs a timeline. Rewrite the steps |
 | `clone.py` | Renders each line in the presenter's voice, writes `timings.json` |
+| `pitch.py` | Measures F0. Used by `clone.py`, and runnable on any wav |
 | `calibrate.py` | Moves the timeline from Node's clock onto the video's |
 | `assemble.sh` | Upscales, mixes, concatenates |
 | `cards.mjs` | Renders title cards |
@@ -161,7 +162,7 @@ on the reference build: **~75ms, consistent to 3ms** across recordings.
 | Overlay vanishes at the key moment | A crash demo unmounts React's root, taking any overlay inside it | Append every overlay to `document.body` via `addInitScript`, never into the app |
 | Wrong text gets formatted | Slate drops selection keys sent closer than ~150ms apart | Pace word-wise navigation at ~180ms, and poll `getSelection().toString()` rather than asserting once |
 | Sentences run together | The synthesiser ignores beat boundaries inside one utterance | Split the beat and use `pauseAfter`. No amount of spacing between *beats* fixes bleed *within* one |
-| The sign-off sounds like a question | A 0.6s closing line reads as truncated, not as rising pitch | Lengthen it. Measured F0 slope was already falling — the problem was duration |
+| The sign-off sounds like a question | Two separate causes. A 0.6s closing line reads as truncated rather than as rising pitch, and separately the synthesiser does sometimes end a statement on a genuine rise | Check which before changing anything: `python pitch.py` on the line reports the ending slope. A real rise retries automatically in `clone.py` (`MAX_RISE_HZ`); a falling slope means the line is simply too short, so lengthen it |
 | `drawtext` filter not found | Homebrew ffmpeg often ships without libfreetype | Render title cards as HTML in Chromium and loop the PNG |
 | A quiet cue jumps to full scale | `loudnorm` across the whole mix rides gain up around a sound sitting in silence | Normalise speech alone, mix effects in afterwards at fixed level, then `alimiter` |
 | Recording shows the old behaviour | Only packages served from source pick up a ref change; anything consumed from `dist` needs building | `BUILD_CMD` in the harness |
@@ -216,6 +217,15 @@ transcribe **that exact cut** with whisper. See Voice setup above.
 The log prints a default voice name (`af_heart`) even while cloning correctly.
 Verify by pitch, not by reading the log.
 
+**Two defects survive a clean render, so `clone.py` measures and retries both.**
+A line can end mid-word while sounding fine, and a statement can land on a
+rising pitch that reads as a question. Neither shows up in the text, the
+duration, or the log. Every line prints its ending loudness and its pitch climb,
+so the thresholds (`MAX_TAIL_DB`, `MAX_RISE_HZ`) can be tuned against a real run
+rather than trusted blind. A line that fails all four attempts is marked
+`STILL CUT` or `STILL RISING` and kept, because the best of four is still the
+best available.
+
 ## Verifying without eyes or ears
 
 An agent cannot watch or listen. Every defect in this build was caught by
@@ -237,8 +247,11 @@ test reports false misses on `organisation`/`organization` and
 `hand edited`/`hand-edited`, which costs a round of chasing nothing.
 
 - **Voice actually cloned?** Median F0 within ~10 Hz of the reference. A stock
-  voice sits far higher.
-- **Rising or falling inflection?** Fit a line to F0 over the final ~450ms.
+  voice sits far higher. `clone.py` prints both medians when it finishes.
+- **Rising or falling inflection?** `python pitch.py line.wav` fits a line to F0
+  over the final 450ms and reports the climb in Hz. Negative is a statement.
+  `clone.py` already retries any line above `MAX_RISE_HZ`, so this is for
+  checking the finished audio rather than catching it first.
 - **Beat overlap?** Compare each beat's start against the previous beat's start
   plus its audio length.
 

@@ -7,11 +7,11 @@ the transcript of that exact cut as ref.txt.
 
 import json
 import pathlib
-import wave
-
 import numpy as np
 
 from mlx_audio.tts.generate import generate_audio, load_model
+
+import pitch
 
 HERE = pathlib.Path(__file__).parent
 AUDIO = HERE / "audio"
@@ -41,20 +41,24 @@ model = load_model(MODEL)
 #
 # Speaking rate does not find it. A truncated line does read fast, but so does
 # any short phrase, and a long line can lose its last few words while still
-# averaging out normal — which is exactly how the epic line passed while ending
-# mid-sentence. What separates them is how the audio ends: a finished utterance
-# decays into silence, and a cut one stops at full voice. Measuring the last
-# 60ms against the line's own peak says which happened, whatever its length.
+# averaging out normal. What separates them is how the audio ends: a finished
+# utterance decays into silence, and a cut one stops at full voice. Measuring
+# the last 60ms against the line's own peak says which happened.
 MAX_TAIL_DB = -32.0
+
+# It also sometimes ends a statement on a rising pitch, which reads as a
+# question. Nothing about the text causes it and re-rendering the same line
+# usually fixes it, so it is measured and retried like a cut ending.
+#
+# Tune this on the first run: every line prints its rise, so the number to
+# reject by is visible in the output rather than guessed at here.
+MAX_RISE_HZ = 12.0
+
 ATTEMPTS = 4
 
 
-def tail_db(path):
+def tail_db(x, sr):
     """How loud the final 60ms is against the line's own peak."""
-    with wave.open(str(path)) as w:
-        frames = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
-        sr = w.getframerate()
-    x = frames.astype(float)
     peak = np.abs(x).max() or 1.0
     tail = x[-int(0.06 * sr):]
     return 20 * np.log10((np.sqrt((tail ** 2).mean()) + 1e-9) / peak)
@@ -71,31 +75,60 @@ def render(beat, prefix):
         verbose=False,
     )
     path = pathlib.Path(f"{prefix}_000.wav")
-    with wave.open(str(path)) as w:
-        seconds = w.getnframes() / w.getframerate()
-    return path, seconds, tail_db(path)
+    x, sr = pitch.read_wav(path)
+    return {
+        "path": path,
+        "seconds": len(x) / sr,
+        "tail": tail_db(x, sr),
+        "rise": pitch.ending_rise(x, sr),
+        "median": pitch.median_f0(x, sr),
+    }
 
+
+def score(take):
+    """Lower is better. A cut line is worse than a merely rising one."""
+    return (take["tail"] > MAX_TAIL_DB, max(0.0, take["rise"] - MAX_RISE_HZ))
+
+
+ref_x, ref_sr = pitch.read_wav(REF_AUDIO)
+reference_f0 = pitch.median_f0(ref_x, ref_sr)
 
 timings = []
 for beat in beats:
     prefix = str(AUDIO / beat["id"])
-    path, seconds, tail = render(beat, prefix)
-
-    # Keep the attempt that ended most quietly: the one that got furthest.
-    for attempt in range(2, ATTEMPTS + 1):
-        if tail <= MAX_TAIL_DB:
+    best = None
+    for attempt in range(1, ATTEMPTS + 1):
+        take = render(beat, prefix)
+        if best is None or score(take) < score(best):
+            best = {**take, "data": take["path"].read_bytes()}
+        if score(take) == (False, 0.0):
             break
-        best, best_seconds, best_tail = path.read_bytes(), seconds, tail
-        print(f"     {beat['id']} ends at {tail:.1f} dB, retry {attempt - 1}")
-        path, seconds, tail = render(beat, prefix)
-        if best_tail < tail:
-            path.write_bytes(best)
-            seconds, tail = best_seconds, best_tail
+        if attempt < ATTEMPTS:
+            print(f"     {beat['id']} tail {take['tail']:.1f} dB, "
+                  f"rise {take['rise']:+.0f} Hz — retry {attempt}")
 
-    flag = "  STILL CUT" if tail > MAX_TAIL_DB else ""
-    print(f"{beat['id']:4s} {seconds:5.2f}s  tail {tail:6.1f} dB  "
-          f"{beat['caption']}{flag}")
-    timings.append({**beat, "file": str(path), "seconds": seconds})
+    # Keep the attempt that scored best, which is not always the last one.
+    best["path"].write_bytes(best["data"])
+
+    flags = []
+    if best["tail"] > MAX_TAIL_DB:
+        flags.append("STILL CUT")
+    if best["rise"] > MAX_RISE_HZ:
+        flags.append("STILL RISING")
+    flag = "  " + ", ".join(flags) if flags else ""
+
+    print(f"{beat['id']:4s} {best['seconds']:5.2f}s  tail {best['tail']:6.1f} dB  "
+          f"rise {best['rise']:+5.0f} Hz  {beat['caption']}{flag}")
+    timings.append({**beat, "file": str(best["path"]), "seconds": best["seconds"],
+                    "median_f0": best["median"]})
 
 (HERE / "timings.json").write_text(f"{json.dumps(timings, indent=2)}\n")
 print(f"\ntotal speech {sum(t['seconds'] for t in timings):.1f}s")
+
+# The log prints a stock voice name even while cloning correctly, so pitch is
+# the only honest way to tell whether the reference was used.
+spoken_f0 = float(np.median([t["median_f0"] for t in timings]))
+print(f"median F0 {spoken_f0:.0f} Hz, reference {reference_f0:.0f} Hz")
+if abs(spoken_f0 - reference_f0) > 15:
+    print("  the clone is not tracking the reference — check that voice/ref.txt "
+          "matches voice/ref.wav word for word")
