@@ -33,16 +33,38 @@ cd "$WORK"
 | `harness.sh` | Runs the whole thing unattended across two git refs |
 | `requirements.txt` | Python dependencies |
 
+## Shared home
+
+Set up the voice and the Python environment once, in one place, and every
+video after that reuses them. **Look here before you set anything up.**
+
+| Path | What | Set up |
+|---|---|---|
+| `~/.done-video/voice/ref.wav` | The presenter's reference clip | Voice setup, below |
+| `~/.done-video/voice/ref.txt` | Its transcript, word for word | Voice setup, below |
+| `~/.done-video/voice/signoff.txt` | The presenter's sign-off line | Ask the presenter once |
+| `~/.done-video/.venv/` | Python with `mlx-audio` and `numpy` | Requirements, below |
+| `~/.cache/huggingface/` | The voice model, about 2 GB | First `clone.py` run |
+
+`DONE_VIDEO_HOME` moves the home somewhere else. `clone.py`, `harness.sh` and
+`assemble.sh` read the voice and the venv from the home, so a fresh copy of the
+kit needs neither. A `voice/` folder or `.venv/` next to the kit still works,
+for a one-off presenter.
+
+```bash
+ls ~/.done-video/voice ~/.done-video/.venv/bin/python   # already set up?
+```
+
 ## Requirements
 
 ```bash
 brew install ffmpeg jq                    # ffprobe ships with ffmpeg
-python3 -m venv .venv                     # Python 3.10+
-./.venv/bin/pip install -r requirements.txt
+python3 -m venv ~/.done-video/.venv       # Python 3.10+, once per machine
+~/.done-video/.venv/bin/pip install -r requirements.txt
 ```
 
-Node 20+ for the two `.mjs` scripts. Both scripts set `PYTHON` if the venv is
-somewhere else: `PYTHON=/path/to/python ./assemble.sh`.
+Node 20+ for the two `.mjs` scripts. Set `PYTHON` to use a different
+environment: `PYTHON=/path/to/python ./assemble.sh`.
 
 **Playwright is borrowed from the app being recorded, not installed here.**
 `record.mjs` and `cards.mjs` resolve it through `APP_DIR`, so the target app
@@ -61,34 +83,36 @@ nothing in `assemble.sh` calls it — so install it only when checking sync.
 
 **No voice reference ships with this plugin.** A cloned voice is a person's
 likeness, so the presenter supplies their own. `clone.py` stops with
-instructions if `voice/` is missing, and nothing downstream runs without it.
+instructions if `~/.done-video/voice/` is missing, and nothing downstream runs
+without it. Skip this section when `ref.wav` and `ref.txt` are already there.
 
-Two files are needed:
+Two files are needed, in `~/.done-video/voice/`:
 
-- `voice/ref.wav` — about 10 seconds of the presenter. One speaker, no music,
-  no other voices. A stretch of an existing talk or podcast works.
-- `voice/ref.txt` — the transcript of **that exact cut**, word for word.
+- `ref.wav`: about 10 seconds of the presenter. One speaker, no music, no
+  other voices. A stretch of an existing talk or podcast works.
+- `ref.txt`: the transcript of **that exact cut**, word for word.
 
 **Ask the presenter for a source clip before doing anything else.** Any file
 ffmpeg reads will do: a video of a talk, a voice memo, a screen recording. Then
 cut and transcribe it:
 
 ```bash
-mkdir -p voice
+V=~/.done-video/voice
+mkdir -p $V
 # Cut ~10s from a quiet single-speaker stretch. Adjust -ss until it is clean.
-ffmpeg -y -ss 00:01:24 -t 10.5 -i /path/to/source -ac 1 -ar 24000 voice/ref.wav
+ffmpeg -y -ss 00:01:24 -t 10.5 -i /path/to/source -ac 1 -ar 24000 $V/ref.wav
 
 # Transcribe the cut, never the source: the two must agree word for word.
-./.venv/bin/pip install mlx-whisper
-./.venv/bin/python -c "
+~/.done-video/.venv/bin/pip install mlx-whisper
+~/.done-video/.venv/bin/python -c "
 import mlx_whisper
-print(mlx_whisper.transcribe('voice/ref.wav',
+print(mlx_whisper.transcribe('$V/ref.wav',
       path_or_hf_repo='mlx-community/whisper-tiny')['text'].strip())
-" > voice/ref.txt
-cat voice/ref.txt
+" > $V/ref.txt
+cat $V/ref.txt
 ```
 
-Read `voice/ref.txt` back and correct it by hand before recording. Whisper drops
+Read `ref.txt` back and correct it by hand before recording. Whisper drops
 filler words and mishears names, and every mismatch pulls the clone off the
 reference.
 
@@ -110,7 +134,8 @@ Two beats, always, after the demo lands:
 1. **What was done**, named as the thing rather than the change: "So that is the
    admin panel. Announcements are managed from a browser…". A viewer arriving at
    the end should be able to say what now exists.
-2. **The sign-off**, in the presenter's own words. Same wording every video, so
+2. **The sign-off**, in the presenter's own words, from
+   `~/.done-video/voice/signoff.txt`. Same wording every video, so
    it reads as a series rather than a one-off. Over a closing card, with the
    outcome badge cleared first — it belongs to the demo, not to the closing
    words.

@@ -1,11 +1,13 @@
 """Renders every narration beat in the presenter's cloned voice.
 
 The reference clip and its transcript must match word for word, otherwise the
-clone drifts. Supply both in voice/: a ~10s single-speaker clip as ref.wav, and
-the transcript of that exact cut as ref.txt.
+clone drifts. Supply both in $DONE_VIDEO_HOME/voice/ (default ~/.done-video):
+a ~10s single-speaker clip as ref.wav, and the transcript of that exact cut as
+ref.txt. A voice/ folder next to this script still works.
 """
 
 import json
+import os
 import pathlib
 import numpy as np
 
@@ -18,16 +20,18 @@ AUDIO = HERE / "audio"
 AUDIO.mkdir(exist_ok=True)
 
 MODEL = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit"
-VOICE = HERE / "voice"
+# The presenter records the reference once, and every copy of the kit reads it from the shared home.
+SHARED_VOICE = pathlib.Path(os.environ.get("DONE_VIDEO_HOME", pathlib.Path.home() / ".done-video")) / "voice"
+VOICE = SHARED_VOICE if (SHARED_VOICE / "ref.wav").exists() else HERE / "voice"
 REF_AUDIO = VOICE / "ref.wav"
 REF_TEXT_FILE = VOICE / "ref.txt"
 
 if not REF_AUDIO.exists() or not REF_TEXT_FILE.exists():
     raise SystemExit(
-        f"No voice reference found in {VOICE}.\n"
+        f"No voice reference found in {SHARED_VOICE}.\n"
         "Supply two files before recording:\n"
-        "  voice/ref.wav  a ~10s clip of the presenter, one speaker, no music\n"
-        "  voice/ref.txt  the transcript of that exact cut, word for word\n"
+        f"  {SHARED_VOICE}/ref.wav  a ~10s clip of the presenter, one speaker, no music\n"
+        f"  {SHARED_VOICE}/ref.txt  the transcript of that exact cut, word for word\n"
         "See the skill's Voice setup section for how to cut and transcribe one."
     )
 
@@ -130,5 +134,5 @@ print(f"\ntotal speech {sum(t['seconds'] for t in timings):.1f}s")
 spoken_f0 = float(np.median([t["median_f0"] for t in timings]))
 print(f"median F0 {spoken_f0:.0f} Hz, reference {reference_f0:.0f} Hz")
 if abs(spoken_f0 - reference_f0) > 15:
-    print("  the clone is not tracking the reference — check that voice/ref.txt "
-          "matches voice/ref.wav word for word")
+    print("  the clone is not tracking the reference — check that ref.txt "
+          f"matches ref.wav word for word in {VOICE}")

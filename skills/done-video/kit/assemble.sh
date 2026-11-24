@@ -8,6 +8,12 @@ trap 'rm -rf "$work"' EXIT
 
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 
+DONE_VIDEO_HOME="${DONE_VIDEO_HOME:-$HOME/.done-video}"
+if [ -z "${PYTHON:-}" ] && [ -x "$DONE_VIDEO_HOME/.venv/bin/python" ]; then
+  PYTHON="$DONE_VIDEO_HOME/.venv/bin/python"
+fi
+PYTHON="${PYTHON:-./.venv/bin/python}"
+
 # A short filtered noise burst. Generated rather than sourced so there is no
 # sample to license, and quiet enough to sit under the narration.
 # Prefer a supplied click recording; fall back to a synthesised one so this
@@ -23,13 +29,13 @@ fi
 # The outcome cues are synthesised rather than sampled, so they are built here
 # instead of being carried in the repo.
 if [ ! -f clicks/win.wav ] || [ ! -f clicks/lose.wav ]; then
-  "${PYTHON:-./.venv/bin/python}" stingers.py
+  "$PYTHON" stingers.py
 fi
 
 secs_to_ms() { awk -v s="$1" 'BEGIN { printf "%d", s * 1000 }'; }
 
 # Recorded timings are on Node's clock; this moves them onto the video's.
-"${PYTHON:-./.venv/bin/python}" calibrate.py intro before after
+"$PYTHON" calibrate.py intro before after
 
 # Each narration line is placed at the offset the recorder measured for its
 # beat, not at the sum of the lines before it. An action that runs longer than
