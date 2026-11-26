@@ -27,6 +27,13 @@ READY_TIMEOUT="${READY_TIMEOUT:-180}"
 # Anything else left dirty is reported rather than discarded.
 GENERATED_PATHS="${GENERATED_PATHS:-}"
 
+# One Python environment serves every copy of the kit, so mlx-audio installs once.
+DONE_VIDEO_HOME="${DONE_VIDEO_HOME:-$HOME/.done-video}"
+if [ -z "${PYTHON:-}" ] && [ -x "$DONE_VIDEO_HOME/.venv/bin/python" ]; then
+  PYTHON="$DONE_VIDEO_HOME/.venv/bin/python"
+fi
+export DONE_VIDEO_HOME PYTHON="${PYTHON:-$HERE/.venv/bin/python}"
+
 log() { printf '\033[36m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[31mfatal:\033[0m %s\n' "$*" >&2; exit 1; }
 
@@ -168,7 +175,7 @@ record() {
 # exist before anything is recorded. Skipped when already current.
 if [ ! -f "$HERE/timings.json" ] || [ "$HERE/beats.json" -nt "$HERE/timings.json" ]; then
   log "generating narration"
-  ( cd "$HERE" && "${PYTHON:-$HERE/.venv/bin/python}" clone.py )
+  ( cd "$HERE" && "$PYTHON" clone.py )
 else
   log "narration is current, skipping"
 fi
